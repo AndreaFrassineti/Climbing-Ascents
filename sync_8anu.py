@@ -6,42 +6,65 @@ USER_SLUG = "andrea-frassineti"
 OUTPUT_FILE = "data/ascents.json"
 
 def fetch_ascents_by_category(user_slug, category):
-    # Nuovo endpoint REST di 8a.nu
-    url = f"https://www.8a.nu/api/users/{user_slug}/ascents"
-    params = {
-        "category": category,
-        "pageIndex": 0,
-        "pageSize": 1000
-    }
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept": "application/json"
-    }
+    all_category_ascents = []
+    page_index = 0
+    page_size = 50
 
-    try:
-        response = requests.get(url, params=params, headers=headers)
-        if response.status_code == 200:
-            data = response.json()
-            return data.get("ascents", [])
-        else:
-            print(f"Errore HTTP {response.status_code} durante il recupero di '{category}'")
-            return []
-    except Exception as e:
-        print(f"Eccezione durante la richiesta per '{category}': {e}")
-        return []
+    while True:
+        url = f"https://www.8a.nu/api/unification/ascent/v1/web/users/{user_slug}/ascents"
+        params = {
+            "category": category,
+            "pageIndex": page_index,
+            "pageSize": page_size,
+            "sortField": "grade_desc",
+            "timeFilter": 0,
+            "gradeFilter": 0,
+            "includeProjects": "false",
+            "showRepeats": "false",
+            "showDuplicates": "false"
+        }
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/json"
+        }
+
+        try:
+            response = requests.get(url, params=params, headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                ascents = data.get("ascents", [])
+                
+                if not ascents:
+                    break
+                
+                all_category_ascents.extend(ascents)
+                
+                # Se la pagina ha restituito meno elementi di pageSize, siamo all'ultima pagina
+                if len(ascents) < page_size:
+                    break
+                
+                page_index += 1
+            else:
+                print(f"Errore HTTP {response.status_code} durante il recupero di '{category}' (pagina {page_index})")
+                break
+        except Exception as e:
+            print(f"Eccezione durante la richiesta per '{category}': {e}")
+            break
+
+    return all_category_ascents
 
 if __name__ == "__main__":
     os.makedirs("data", exist_ok=True)
-    all_ascents = []
+    total_ascents = []
 
     for category in ["sportclimbing", "bouldering"]:
         ascents = fetch_ascents_by_category(USER_SLUG, category)
         print(f"Trovate {len(ascents)} ascensioni per '{category}'")
-        all_ascents.extend(ascents)
+        total_ascents.extend(ascents)
 
-    print(f"Totale ascensioni recuperate: {len(all_ascents)}")
+    print(f"Totale ascensioni recuperate: {len(total_ascents)}")
 
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-        json.dump(all_ascents, f, ensure_ascii=False, indent=2)
+        json.dump(total_ascents, f, ensure_ascii=False, indent=2)
 
     print(f"File salvato correttamente in {OUTPUT_FILE}")
