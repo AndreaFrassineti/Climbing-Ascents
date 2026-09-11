@@ -1,0 +1,32 @@
+name: Auto Sync 8a.nu
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout codice
+        uses: actions/checkout@v3
+
+      - name: Configura Python
+        uses: actions/python-version@v4
+        with:
+          python-version: '3.10'
+
+      - name: Installa dipendenze
+        run: pip install requests
+
+      - name: Esegui sync da 8a.nu
+        run: python sync_8anu.py
+
+      - name: Commit e Push dei dati aggiornati
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions@users.noreply.github.com"
+          git add data/ascents.json
+          git commit -m "Auto-sync 8a.nu [skip ci]" || exit 0
+          git push
