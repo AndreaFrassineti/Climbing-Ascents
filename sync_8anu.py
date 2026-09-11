@@ -4,6 +4,7 @@ import requests
 
 USER_SLUG = "andrea-frassineti"
 OUTPUT_FILE = "data/ascents.json"
+COOKIE = os.environ.get("EIGHT_A_COOKIE", "")
 
 def fetch_ascents_by_category(user_slug, category):
     all_category_ascents = []
@@ -23,10 +24,19 @@ def fetch_ascents_by_category(user_slug, category):
             "showRepeats": "false",
             "showDuplicates": "false"
         }
+        
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "application/json"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36 OPR/135.0.0.0",
+            "Accept": "*/*",
+            "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Referer": f"https://www.8a.nu/user/{user_slug}/{category}",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-origin"
         }
+        
+        if COOKIE:
+            headers["Cookie"] = COOKIE
 
         try:
             response = requests.get(url, params=params, headers=headers)
@@ -39,7 +49,6 @@ def fetch_ascents_by_category(user_slug, category):
                 
                 all_category_ascents.extend(ascents)
                 
-                # Se la pagina ha restituito meno elementi di pageSize, siamo all'ultima pagina
                 if len(ascents) < page_size:
                     break
                 
