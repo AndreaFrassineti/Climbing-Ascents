@@ -2,17 +2,15 @@ import json
 import os
 import requests
 
-# Inserisci il tuo slug esatto dall'URL di 8a.nu (https://www.8a.nu/user/IL-TUO-SLUG)
 USER_SLUG = "andrea-frassineti"
-
 OUTPUT_FILE = "data/ascents.json"
 GRAPHQL_URL = "https://www.8a.nu/api/graphql"
 
 
-def fetch_8anu_ascents(user_slug):
+def fetch_ascents_by_category(user_slug, category):
   query = """
-    query GetAscents($userSlug: String!) {
-      ascents(userSlug: $userSlug, pageIndex: 0, pageSize: 2000) {
+    query GetAscents($userSlug: String!, $category: String) {
+      ascents(userSlug: $userSlug, category: $category, pageIndex: 0, pageSize: 1000) {
         ascents {
           id
           routeName
@@ -28,32 +26,55 @@ def fetch_8anu_ascents(user_slug):
       }
     }
     """
-  headers = {"User-Agent": "Mozilla/5.0", "Content-Type": "application/json"}
+  headers = {
+      "User-Agent": (
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+      ),
+      "Content-Type": "application/json",
+  }
+  payload = {
+      "query": query,
+      "variables": {"userSlug": user_slug, "category": category},
+  }
+
   try:
-    response = requests.post(
-        GRAPHQL_URL,
-        json={"query": query, "variables": {"userSlug": user_slug}},
-        headers=headers,
-    )
+    response = requests.post(GRAPHQL_URL, json=payload, headers=headers)
     if response.status_code == 200:
-      data = response.json()
-      return data.get("data", {}).get("ascents", {}).get("ascents", [])
+      res_data = response.json()
+      if "errors" in res_data:
+        print(
+            f"Errore GraphQL per la categoria '{category}':"
+            f" {res_data['errors']}"
+        )
+        return []
+      data_field = res_data.get("data", {}).get("ascents")
+      if data_field and "ascents" in data_field:
+        return data_field["ascents"] or []
     else:
-      print(f"Errore HTTP: {response.status_code}")
-      return []
+      print(
+          f"Errore HTTP {response.status_code} durante il recupero di"
+          f" '{category}'"
+      )
   except Exception as e:
-    print(f"Errore durante la richiesta: {e}")
-    return []
+    print(f"Eccezione durante la richiesta per '{category}': {e}")
+
+  return []
 
 
 if __name__ == "__main__":
   os.makedirs("data", exist_ok=True)
-  ascents = fetch_8anu_ascents(USER_SLUG)
 
-  print(f"Trovate {len(ascents)} ascensioni per lo user '{USER_SLUG}'")
+  all_ascents = []
 
-  # Forziamo la creazione del file JSON per garantire il commit su Git
+  # Recupera separatamente le vie da falesia e i blocchi da boulder
+  for category in ["sportclimbing", "bouldering"]:
+    ascents = fetch_ascents_by_category(USER_SLUG, category)
+    print(f"Trovate {len(ascents)} ascensioni per '{category}'")
+    all_ascents.extend(ascents)
+
+  print(f"Totale ascensioni recuperate: {len(all_ascents)}")
+
   with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
-    json.dump(ascents, f, ensure_ascii=False, indent=2)
+    json.dump(all_ascents, f, ensure_ascii=False, indent=2)
 
-  print(f"File creato con successo in {OUTPUT_FILE}")
+  print(f"File salvato correttamente in {OUTPUT_FILE}")
